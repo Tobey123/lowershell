@@ -4,6 +4,8 @@ import sys
 import os
 import base64
 import string
+import re
+
 
 def fakever(n):
   def nums(num):
@@ -40,38 +42,35 @@ def steg(payload, image, output):
   '''
 
   base64_lookup = {v:k for k,v in enumerate(
-    string.uppercase + string.lowercase + string.digits + '+/=')}
+    string.uppercase + string.lowercase + string.digits + '+/')}
 
   with open(payload, 'rb') as file_payload, open(image, 'rb') as file_image:
     image_carrier = Image.open(file_image)
-    capacity = image_carrier.width * image_carrier.height / 16 * 3 / 4
+    capacity = image_carrier.width * image_carrier.height * 3 / 6
     payload_size = os.path.getsize(payload)
 
     if payload_size > capacity:
       raise ValueError('Image capacity exceed. Try a nother carrier.')
-
-    if image_carrier.mode != 'RGB':
-      image_carrier = image_carrier.convert('RGB')
-
-    buf = image_carrier.tobytes('raw', 'RGB')
-    encoded = base64.b64encode(file_payload.read())
     
+    image_carrier = image_carrier.convert('RGB')
+    buf = image_carrier.tobytes('raw', 'RGB')
+    encoded = re.sub(r'=*$', '', base64.b64encode(file_payload.read()))
+    encoded_len = len(encoded) * 6
     
   def blend():
     for offset, ch in enumerate(encoded):
       val = base64_lookup[ch]
-      for i in xrange(6): # 64 == 2 ^ 6
-        bit = ((val >> i) & 1) ^ 0xFF
-        index = offset * 6 + i
-        yield ord(buf[index]) & bit
+      base = offset * 6
+      for step in xrange(6): # 64 == 2 ^ 6
+        bit = (val >> step) & 1
+        yield (ord(buf[base + step]) & 0b11111110) + bit
 
-  merged = ''.join(map(chr, list(blend())))
-  merged += buf[len(merged):]
+  merged = ''.join([chr(byte) for byte in blend()]) + buf[encoded_len:]
 
   image_merged = Image.frombytes(mode='RGB', size=image_carrier.size, data=merged)
   image_merged.save(output)
     
-  os.system('exiftool -Software="FantasyPhoto %s" %s' % (fakever(payload_size), output))
+  os.system('exiftool -Software="FantasyPhoto %s" %s' % (fakever(encoded_len), output))
   print 'Checkout %s' % output
   
 
