@@ -4,6 +4,8 @@ import sys
 import os
 import base64
 import string
+import re
+
 
 def fakever(n):
   def nums(num):
@@ -40,7 +42,7 @@ def steg(payload, image, output):
   '''
 
   base64_lookup = {v:k for k,v in enumerate(
-    string.uppercase + string.lowercase + string.digits + '+/=')}
+    string.uppercase + string.lowercase + string.digits + '+/')}
 
   with open(payload, 'rb') as file_payload, open(image, 'rb') as file_image:
     image_carrier = Image.open(file_image)
@@ -52,7 +54,7 @@ def steg(payload, image, output):
     
     image_carrier = image_carrier.convert('RGB')
     buf = image_carrier.tobytes('raw', 'RGB')
-    encoded = base64.b64encode(file_payload.read())
+    encoded = re.sub(r'=*$', '', base64.b64encode(file_payload.read()))
     encoded_len = len(encoded) * 6
     
   def blend():
