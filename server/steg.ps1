@@ -1,4 +1,19 @@
 function Decode-Fake-Ver {
+<#
+.SYNOPSIS
+
+Decode a hidden integer pretend to be a version number from Image's EXIF tag
+
+.PARAMETER img
+
+Carrier image object
+
+.EXAMPLE
+
+$img = [System.Drawing.Image]::FromFile($path)
+$num = Decode-Fake-Ver $img
+
+#>
     param([System.Drawing.Image]$img)
 
     $TAG_SOFT = 305
@@ -14,6 +29,19 @@ function Decode-Fake-Ver {
 }
 
 function Extract-Steg {
+<#
+.SYNOPSIS
+
+Extract hidden message from an image using LSB algorithm
+
+.PARAMETER $filename
+
+Path to the carrier image
+
+.EXAMPLE
+
+Extract-Steg "path-to-some-image.png"
+#>
     param([string]$filename)
 
     [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing") | Out-Null
