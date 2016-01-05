@@ -55,7 +55,7 @@ def steg(payload, image, output):
     image_carrier = image_carrier.convert('RGB')
     buf = image_carrier.tobytes('raw', 'RGB')
     encoded = re.sub(r'=*$', '', base64.b64encode(file_payload.read()))
-    encoded_len = len(encoded) * 6
+    encoded_len = len(encoded)
     
   def blend():
     for offset, ch in enumerate(encoded):
@@ -65,11 +65,11 @@ def steg(payload, image, output):
         bit = (val >> step) & 1
         yield (ord(buf[base + step]) & 0b11111110) + bit
 
-  merged = ''.join([chr(byte) for byte in blend()]) + buf[encoded_len:]
+  merged = ''.join([chr(byte) for byte in blend()]) + buf[encoded_len * 6:]
 
   image_merged = Image.frombytes(mode='RGB', size=image_carrier.size, data=merged)
   image_merged.save(output)
-    
+
   os.system('exiftool -Software="FantasyPhoto %s" %s' % (fakever(encoded_len), output))
   print 'Checkout %s' % output
   
