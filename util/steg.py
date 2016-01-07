@@ -41,6 +41,10 @@ def steg(payload, image, output):
   @output save destination
   '''
 
+  output_basename, output_ext = os.path.splitext(output)
+  if output_ext not in ('.png', '.bmp'):
+    raise ValueError('You should choose a loseless format for output image like png.')
+
   base64_lookup = {v:k for k,v in enumerate(
     string.uppercase + string.lowercase + string.digits + '+/')}
 
