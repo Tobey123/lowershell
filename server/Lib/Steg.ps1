@@ -14,12 +14,12 @@ $img = [System.Drawing.Image]::FromFile($path)
 $num = Decode-Fake-Ver $img
 
 #>
-    param([string]$ver)
+    param([string]$soft)
 
-    $ver -match "((\d+\.)*\d)+" | Out-Null
-    $ver = $matches[0].ToCharArray()
-    [Array]::Reverse($ver)
-    $ver = -join $ver -split "\."
+    $soft -match "((\d+\.)*\d)+" | Out-Null
+    $arr = $matches[0].ToCharArray()
+    [Array]::Reverse($arr)
+    $ver = -join $arr -split "\."
     return $ver[$ver.Count..1] | foreach {$num = 0;$base = [Convert]::ToInt32($ver[0])} {
         $num *= $base
         $num += [Convert]::ToInt32($_)
@@ -64,7 +64,7 @@ Extract-Steg "path-to-some-image.png"
     $img.Dispose()
 
 	# decode binary data
-    $len = $payload_len / 6
+    $len = $payload_len
     $buf = New-Object char[] $len
     $mod = $len % 4
     $padding = ''
