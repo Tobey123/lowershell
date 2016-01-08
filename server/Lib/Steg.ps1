@@ -1,4 +1,4 @@
-function Decode-Fake-Ver {
+function Get-Len {
 <#
 .SYNOPSIS
 
@@ -10,8 +10,7 @@ Carrier image object
 
 .EXAMPLE
 
-$img = [System.Drawing.Image]::FromFile($path)
-$num = Decode-Fake-Ver $img
+$len = Get-Len $str
 
 #>
     param([string]$soft)
@@ -26,7 +25,7 @@ $num = Decode-Fake-Ver $img
     } {$num}
 }
 
-function Extract-Steg {
+function Read-Steg {
 <#
 .SYNOPSIS
 
@@ -38,7 +37,7 @@ Path to the carrier image
 
 .EXAMPLE
 
-Extract-Steg "path-to-some-image.png"
+Read-Steg "path-to-some-image.png"
 #>
     param([string]$filename)
 
@@ -51,7 +50,7 @@ Extract-Steg "path-to-some-image.png"
 	
 	$TAG_SOFT = 305
     $soft = $img.PropertyItems | where {$_.Id -eq $TAG_SOFT} | % {[System.Text.Encoding]::ASCII.GetString($_.Value)}
-    $payload_len = Decode-Fake-Ver $soft
+    $payload_len = Get-Len $soft
 
 	# read image
     $rect = [System.Drawing.Rectangle]::FromLTRB(0, 0, $img.width, $img.height)
