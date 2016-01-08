@@ -53,13 +53,13 @@ class Crypt(object):
         BS = AES.block_size
         return s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
 
-    def encrypt(buf):
+    def encrypt(self, buf):
         raw = self.pad(raw)
         iv = Random.new().read(AES.block_size)
         aes = AES.new(self.key, AES.MODE_CBC, iv)
         return iv + aes.encrypt(raw)
 
-    def decrypt(buf):
+    def decrypt(self, buf):
         iv = buf[0:AES.block_size]
         cipher = buf[AES.block_size:]
         aes = AES.new(self.key, AES.MODE_CBC, iv)
