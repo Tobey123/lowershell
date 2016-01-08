@@ -10,7 +10,7 @@ The hash tag
 
 .EXAMPLE
 
-$files = Get-Images "ThisIsAUniqueSecretTag"
+$files = Get-Images "ThisIsAnUniqueSecretTag"
 
 #>
     param([string]$tag)
