@@ -30,11 +30,10 @@
     <Folder Include="Lib\" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Lib\CnC.ps1" />
+    <Compile Include="Lib\Config.ps1" />
     <Compile Include="Lib\Crypt.ps1" />
     <Compile Include="Lib\Lib.psd1" />
     <Compile Include="Lib\Lib.psm1" />
-    <Compile Include="Lib\Pipe.ps1" />
     <Compile Include="Lib\Steg.ps1" />
     <Compile Include="Server.ps1" />
   </ItemGroup>
