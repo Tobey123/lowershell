@@ -24,10 +24,8 @@ import select
 import socket
 import subprocess
 import sys
-import hashlib
 
-from Crypto.Cipher import AES
-from Crypto import Random
+from crypt import Crypt
 
 from config import PASSWORD, SECRET
 
@@ -45,48 +43,6 @@ def set_non_blocking(fd):
     flags = fcntl.fcntl(fd, fcntl.F_GETFL)
     flags = flags | os.O_NONBLOCK
     fcntl.fcntl(fd, fcntl.F_SETFL, flags)
-
-
-class Crypt(object):
-   
-    def __init__(self, key):
-        super(Crypt, self).__init__()
-        sha = hashlib.sha256()
-        sha.update(key)
-        self.key = sha.digest()
-
-    def pad(self, s):
-        BS = AES.block_size
-        return s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
-
-    def unpad(self, s):
-        return s[0:-ord(s[-1])]
-
-    def encrypt(self, buf):
-        raw = self.pad(buf)
-        iv = Random.new().read(AES.block_size)
-        aes = AES.new(self.key, AES.MODE_CBC, iv)
-        return iv + aes.encrypt(raw)
-
-    def decrypt(self, buf):
-        iv = buf[0:AES.block_size]
-        cipher = buf[AES.block_size:]
-        aes = AES.new(self.key, AES.MODE_CBC, iv)
-        raw = aes.decrypt(cipher)
-        return self.unpad(raw)
-
-
-def auth_code(uid):
-    # todo: database
-    if uid == '8fd2d4d2-1385-4b66-b4da-00191f6ee044':
-        sha = hashlib.sha256()
-        sha.update(uid)
-        sha.update(SECRET)
-        digest = sha.digest()
-        sha = hashlib.sha256()
-        sha.update(digest)
-        sha.update(SECRET)
-        return sha.hexdigest()
 
 
 def main():
