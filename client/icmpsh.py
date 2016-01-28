@@ -108,7 +108,7 @@ def main():
             # imcoming command
             incoming_src, incoming_dst = ippacket.get_ip_src(), ippacket.get_ip_dst()
             if icmppacket.get_icmp_type() == 8:
-                if (server and incoming_src <> server) or (client and incoming_dst <> client):
+                if (server and incoming_src != server) or (client and incoming_dst != client):
                     continue
 
                 # Get identifier and sequence number
